@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: golang-external-scaler
+  namespace: keda
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: golang-external-scaler
+  template:
+    metadata:
+      labels:
+        app: golang-external-scaler
+    spec:
+      containers:
+      - name: scaler
+        image: ahmelsayed/golang-external-scaler:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 6000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: golang-external-scaler
+  namespace: keda
+spec:
+  ports:
+  - port: 6000
+    targetPort: 6000
+  selector:
+    app: golang-external-scaler
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-1
+  namespace: keda
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: test-1
+  template:
+    metadata:
+      labels:
+        app: test-1
+    spec:
+      containers:
+      - name: http
+        image: nginx:latest
+        imagePullPolicy: Always
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: test-1
+  namespace: keda
+spec:
+  minReplicaCount: 1
+  maxReplicaCount: 20
+  scaleTargetRef:
+    name: test-1
+  pollingInterval: 10
+  triggers:
+    - type: external
+      metricType: "Value"
+      useCachedMetrics: true
+      metadata:
+        longitude: "-122.335167"
+        latitude: "47.608013"
+        scalerAddress: 192.168.1.144:6000
